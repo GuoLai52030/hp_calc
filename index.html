@@ -2,75 +2,80 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>血月平铺模拟器</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>血月数值模拟-叠加逻辑修正版</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        :root { --c: #00e5ff; --g: #ff9f43; --bg: #000; }
-        * { box-sizing: border-box; }
-        body, html { margin: 0; padding: 0; background: var(--bg); color: #fff; font-family: sans-serif; overflow: hidden; }
+        :root { --cyan: #00e5ff; --gold: #ff9f43; --bg: #0d0d0d; --panel: #161616; }
+        html, body { background: var(--bg); color: #fff; margin: 0; padding: 0; font-family: sans-serif; overflow-x: hidden; }
         
-        /* 强制缩放容器：这是解决 Antigravity 截断的关键 */
-        #container { 
-            width: 400px; /* 我们设计的逻辑宽度 */
-            transform-origin: top left;
-            padding: 10px;
-        }
+        /* 强制缩放容器，解决侧边栏溢出 */
+        #viewport { width: 100%; max-width: 400px; margin: 0 auto; padding: 15px; box-sizing: border-box; }
 
-        .row { display: flex; gap: 5px; margin-bottom: 8px; }
-        .box { flex: 1; background: #1a1a1a; padding: 5px; border-radius: 4px; border-top: 2px solid var(--c); }
-        .label { font-size: 10px; color: #888; transform: scale(0.9); }
-        .val { font-size: 14px; font-weight: bold; font-family: monospace; color: var(--c); }
-        
-        .slider-group { background: #111; padding: 8px; border-radius: 4px; margin-bottom: 8px; }
-        .s-row { display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 2px; }
-        input[type=range] { width: 100%; height: 4px; accent-color: var(--c); cursor: pointer; margin: 5px 0; }
+        .card { background: var(--panel); border: 1px solid #333; border-radius: 12px; padding: 15px; margin-bottom: 15px; }
+        .title { color: var(--cyan); font-size: 1rem; margin-bottom: 15px; font-weight: bold; border-left: 4px solid var(--cyan); padding-left: 10px; }
 
-        .chart-wrap { height: 180px; background: #080808; border-radius: 4px; position: relative; }
-        .axis { position: absolute; font-size: 9px; color: #444; }
+        .control { margin-bottom: 15px; }
+        .label { display: flex; justify-content: space-between; font-size: 0.85rem; color: #888; margin-bottom: 5px; }
+        .value { color: var(--cyan); font-family: monospace; font-weight: bold; }
+        input[type=range] { width: 100%; accent-color: var(--cyan); cursor: pointer; }
+
+        .res-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
+        .res-box { background: #000; padding: 10px; border-radius: 8px; border-top: 2px solid var(--cyan); }
+        .res-box.gold { border-top-color: var(--gold); }
+        .res-label { font-size: 0.7rem; color: #555; margin-bottom: 3px; }
+        .res-val { font-size: 1rem; font-weight: bold; font-family: monospace; }
+
+        .chart-box { background: #000; border: 1px solid #222; border-radius: 8px; height: 280px; position: relative; padding: 10px; }
+        .axis-name { position: absolute; font-size: 10px; color: #444; }
     </style>
 </head>
 <body>
 
-<div id="container">
-    <div class="slider-group">
-        <div class="s-row">血月等级(L) <span id="lt" class="val">0</span></div>
-        <input type="range" id="ls" min="0" max="300" value="0">
-        
-        <div class="s-row">增伤词缀(%) <span id="bt" class="val">0</span></div>
-        <input type="range" id="bs" min="0" max="1000" value="0" step="10">
-        
-        <div class="s-row">暴击率(%) <span id="ct" class="val">0</span></div>
-        <input type="range" id="cs" min="0" max="100" value="0">
+<div id="viewport">
+    <div class="card">
+        <div class="title">数值输入 (CD 3s / 10次)</div>
+        <div class="control">
+            <div class="label">血月等级 (L) <span class="value" id="lTxt">0</span></div>
+            <input type="range" id="lS" min="0" max="300" value="0">
+        </div>
+        <div class="control">
+            <div class="label">增伤词缀累计 (%) <span class="value" id="bTxt">0%</span></div>
+            <input type="range" id="bS" min="0" max="1000" value="0" step="10">
+        </div>
+        <div class="control">
+            <div class="label">当前暴击率 (%) <span class="value" id="cTxt">0%</span></div>
+            <input type="range" id="cS" min="0" max="100" value="0">
+        </div>
     </div>
 
-    <div class="row">
-        <div class="box"><div class="label">10次总攻</div><div id="v1" class="val">0</div></div>
-        <div class="box" style="border-color:var(--g)"><div class="label">10次总暴(附)</div><div id="v2" class="val">0</div></div>
-    </div>
-    <div class="box" style="width:100%; border-color:#fff; margin-bottom:8px;">
-        <div class="label">单轮CD(3s) 叠加总伤害</div>
-        <div id="vt" class="val" style="font-size:18px; color:var(--g)">0</div>
-    </div>
-
-    <div class="chart-wrap">
-        <div class="axis" style="top:50%; left:-15px; transform:rotate(-90deg)">Log</div>
-        <canvas id="chart"></canvas>
+    <div class="card">
+        <div class="res-grid">
+            <div class="res-box">
+                <div class="res-label">10次总攻击</div>
+                <div id="vAtkSum" class="res-val">0</div>
+            </div>
+            <div class="res-box gold">
+                <div class="res-label">10次总暴击(附加)</div>
+                <div id="vCritSum" class="res-val">0</div>
+            </div>
+            <div class="res-box" style="grid-column: span 2; border-top-color: #fff;">
+                <div class="res-label">单轮 CD 总伤害 (攻击+暴击叠加)</div>
+                <div id="vTotal" class="res-val" style="font-size: 1.4rem; color: var(--gold);">0</div>
+            </div>
+        </div>
+        <div class="chart-box">
+            <div class="axis-name" style="transform:rotate(-90deg); left:-20px; top:50%;">数值 (Log)</div>
+            <div class="axis-name" style="bottom:2px; left:50%; transform:translateX(-50%);">血月等级</div>
+            <canvas id="chart"></canvas>
+        </div>
     </div>
 </div>
 
 <script>
-    // 强制缩放脚本：自动检测宽度并缩小 UI
-    function scaleUI() {
-        const cont = document.getElementById('container');
-        const winW = window.innerWidth;
-        const scale = winW / 400; 
-        cont.style.transform = `scale(${scale})`;
-    }
-    window.addEventListener('resize', scaleUI);
-    scaleUI();
-
-    const ls=$('ls'), bs=$('bs'), cs=$('cs'), chartCtx=$('chart').getContext('2d');
-    function $(id){ return document.getElementById(id); }
+    const $ = id => document.getElementById(id);
+    const lS = $('lS'), bS = $('bS'), cS = $('cS');
+    const ctx = $('chart').getContext('2d');
 
     function getHP(L) {
         if (L <= 100) return 3703 + 24.57 * L;
@@ -78,44 +83,52 @@
         return 32428 + 383.48 * (L - 200);
     }
 
-    const chart = new Chart(chartCtx, {
+    const chart = new Chart(ctx, {
         type: 'line',
         data: {
             labels: Array.from({length: 31}, (_, i) => i * 10),
             datasets: [
-                { data: [], borderColor: '#333', borderWidth: 1, pointRadius: 0 },
-                { data: [], borderColor: '#00e5ff', borderWidth: 2, pointRadius: 0 }
+                { label: '怪物血量', data: [], borderColor: '#333', borderWidth: 2, pointRadius: 0 },
+                { label: '总输出', data: [], borderColor: '#00e5ff', borderWidth: 2, pointRadius: 0 }
             ]
         },
         options: {
             responsive: true, maintainAspectRatio: false,
-            scales: { y: { type: 'logarithmic', display: false }, x: { ticks: { color: '#444', font: { size: 8 } } } },
+            scales: {
+                y: { type: 'logarithmic', grid: { color: '#222' }, ticks: { display: false } },
+                x: { grid: { color: '#222' }, ticks: { color: '#555', font: { size: 9 } } }
+            },
             plugins: { legend: { display: false } }
         }
     });
 
     function update() {
-        const L = parseInt(ls.value), B = parseInt(bs.value)/100, C = parseInt(cs.value)/100;
-        
-        // 核心公式：基于图表数据的拟合
-        const atk = 42 + 80 * (1 + B);
-        const crit = 2 * atk - 42;
-        
-        const atkSum = atk * 10;
-        const critSum = crit * 10;
-        const total = atkSum + (critSum * C); // 叠加逻辑
+        const L = parseInt(lS.value);
+        const B = parseInt(bS.value) / 100;
+        const C = parseInt(cS.value) / 100;
 
-        $('lt').innerText = L; $('bt').innerText = (B*100).toFixed(0); $('ct').innerText = (C*100).toFixed(0);
-        $('v1').innerText = Math.round(atkSum).toLocaleString();
-        $('v2').innerText = Math.round(critSum).toLocaleString();
-        $('vt').innerText = Math.round(total).toLocaleString();
+        // 基础逻辑
+        const atkIn = 42 + 80 * (1 + B);
+        const critDmg = 2 * atkIn - 42;
+
+        // 叠加逻辑修正：10次攻击力 + (10次暴击伤害 * 暴击率)
+        const atkSum = atkIn * 10;
+        const critSum = critDmg * 10;
+        const totalDmg = atkSum + (critSum * C);
+
+        $('lTxt').innerText = L;
+        $('bTxt').innerText = (B * 100).toFixed(0) + '%';
+        $('cTxt').innerText = (C * 100).toFixed(0) + '%';
+        $('vAtkSum').innerText = Math.round(atkSum).toLocaleString();
+        $('vCritSum').innerText = Math.round(critSum).toLocaleString();
+        $('vTotal').innerText = Math.round(totalDmg).toLocaleString();
 
         chart.data.datasets[0].data = Array.from({length: 31}, (_, i) => getHP(i * 10));
-        chart.data.datasets[1].data = Array(31).fill(total);
+        chart.data.datasets[1].data = Array(31).fill(totalDmg);
         chart.update('none');
     }
 
-    [ls, bs, cs].forEach(s => s.addEventListener('input', update));
+    [lS, bS, cS].forEach(el => el.addEventListener('input', update));
     update();
 </script>
 </body>
