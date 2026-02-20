@@ -1,202 +1,96 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html>
 <head>
     <meta charset="UTF-8">
-    <title>血月数值精准拟合模拟器</title>
+    <title>血月数值绝对拟合版</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        :root { --cyan: #00e5ff; --orange: #ff9f43; --bg: #121212; --card: #1e1e1e; }
-        body { font-family: -apple-system, "SF Pro Text", "Helvetica Neue", sans-serif; background: var(--bg); color: #e0e0e0; padding: 20px; line-height: 1.5; }
-        .container { max-width: 1000px; margin: 0 auto; display: grid; grid-template-columns: 320px 1fr; gap: 20px; }
-        .panel { background: var(--card); padding: 20px; border-radius: 16px; border: 1px solid #333; box-shadow: 0 8px 30px rgba(0,0,0,0.5); }
-        h3 { margin-top: 0; color: #fff; border-bottom: 1px solid #333; padding-bottom: 10px; font-size: 1.1em; }
-        
-        /* 控制区样式 */
-        .control-group { margin-bottom: 20px; }
-        label { display: block; font-size: 0.85em; color: #888; margin-bottom: 8px; }
-        input[type=range] { width: 100%; accent-color: var(--cyan); cursor: pointer; }
-        .val-display { float: right; color: var(--cyan); font-family: monospace; font-weight: bold; }
-        
-        /* 词缀槽位 */
-        .slot-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-        .slot { background: #121212; border: 1px solid #444; padding: 5px; border-radius: 6px; display: flex; align-items: center; }
-        .slot span { font-size: 0.7em; color: #666; width: 25px; }
-        .slot input { background: transparent; border: none; color: var(--cyan); width: 100%; outline: none; font-size: 0.9em; font-weight: bold; }
-
-        /* 结果显示 */
-        .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }
-        .stat-card { background: #000; padding: 15px; border-radius: 12px; border-left: 4px solid var(--cyan); }
-        .stat-card.crit { border-left-color: var(--orange); }
-        .stat-label { font-size: 0.75em; color: #888; text-transform: uppercase; }
-        .stat-value { font-size: 1.8em; font-weight: bold; font-family: "Courier New", monospace; }
-
-        .status-box { padding: 12px; border-radius: 8px; text-align: center; font-weight: bold; font-size: 0.9em; }
-        .pass { background: rgba(76, 175, 80, 0.1); color: #4caf50; border: 1px solid #4caf50; }
-        .fail { background: rgba(244, 67, 54, 0.1); color: #f44336; border: 1px solid #f44336; }
-
-        canvas { background: #121212; border-radius: 8px; padding: 10px; }
+        body { background: #121212; color: #fff; font-family: sans-serif; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; background: #1e1e1e; padding: 20px; border-radius: 12px; border: 1px solid #333; }
+        .flex { display: flex; gap: 20px; }
+        .panel { flex: 1; background: #252525; padding: 15px; border-radius: 8px; }
+        .stat { font-size: 2em; font-weight: bold; color: #00e5ff; font-family: monospace; }
+        .label { color: #888; font-size: 0.8em; margin-bottom: 5px; }
+        input { width: 100%; background: #000; border: 1px solid #444; color: #00e5ff; padding: 8px; margin-bottom: 10px; border-radius: 4px; }
+        .log-box { margin-top: 15px; font-size: 0.85em; background: #000; padding: 10px; border-radius: 4px; border: 1px dashed #444; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <div class="panel">
-        <h3>⚙️ 养成参数</h3>
+    <h2 style="margin-top:0">📊 严格数据拟合模拟器</h2>
+    
+    <div class="flex">
+        <div class="panel">
+            <div class="label">当前局内总攻击力</div>
+            <div id="atkIn" class="stat">122</div>
+            <div class="label" style="margin-top:15px">当前暴击伤害</div>
+            <div id="critDmg" class="stat" style="color: #ff9f43;">202</div>
+        </div>
         
-        <div class="control-group">
-            <label>局外初始 ($ATK_{out}$) <span id="outVal" class="val-display">42</span></label>
-            <input type="range" id="outSlider" min="20" max="100" value="42">
-        </div>
-
-        <div class="control-group">
-            <label>血月等级 (L) <span id="lVal" class="val-display">0</span></label>
-            <input type="range" id="lSlider" min="0" max="300" value="0">
-        </div>
-
-        <div class="control-group">
-            <label>怪物数量 (N) <span id="nVal" class="val-display">1</span></label>
-            <input type="range" id="nSlider" min="1" max="50" value="1">
-        </div>
-
-        <label>局内增伤词缀列表 (%)</label>
-        <div class="slot-grid" id="slotGrid">
-            </div>
-        
-        <div style="margin-top: 15px; font-size: 0.75em; color: #555;">
-            * 公式拟合自图片：<br>
-            ATK_in = ATK_out + (122 - ATK_out) * (1 + ΣBonus)<br>
-            Crit = 2 * ATK_in - ATK_out
+        <div class="panel">
+            <div class="label">词缀 1 增伤 (%)</div>
+            <input type="number" class="bonus" value="40">
+            <div class="label">词缀 2 增伤 (%)</div>
+            <input type="number" class="bonus" value="80">
+            <div class="label">词缀 3 增伤 (%)</div>
+            <input type="number" class="bonus" value="40">
+            <div class="label">词缀 4 增伤 (%)</div>
+            <input type="number" class="bonus" value="80">
         </div>
     </div>
 
-    <div class="panel">
-        <div class="stat-grid">
-            <div class="stat-card">
-                <div class="stat-label">局内总攻击力</div>
-                <div id="atkInRes" class="stat-value">122</div>
-            </div>
-            <div class="stat-card crit">
-                <div class="stat-label">暴击伤害</div>
-                <div id="critRes" class="stat-value">202</div>
-            </div>
-        </div>
-
-        <div id="statusBox" class="status-box fail">火力评估中...</div>
-
-        <div style="margin-top: 20px;">
-            <canvas id="growthChart" height="200"></canvas>
-        </div>
+    <div class="log-box">
+        <strong>拟合检查点：</strong><br>
+        • 当词缀为 40+80 时，攻击力应为 <span style="color:#fff">218</span> (图中数值)<br>
+        • 当攻击力为 250 时，暴击应为 <span style="color:#fff">458</span> (图中数值)
     </div>
+
+    <canvas id="chart" height="150" style="margin-top:20px;"></canvas>
 </div>
 
 <script>
-    const outS = document.getElementById('outSlider');
-    const lS = document.getElementById('lSlider');
-    const nS = document.getElementById('nSlider');
-    const slotGrid = document.getElementById('slotGrid');
-    const ctx = document.getElementById('growthChart').getContext('2d');
+    const inputs = document.querySelectorAll('.bonus');
+    const atkDisp = document.getElementById('atkIn');
+    const critDisp = document.getElementById('critDmg');
+    const ctx = document.getElementById('chart').getContext('2d');
 
-    // 预设词缀数据（对应你的例子：40, 80, 40, 80...）
-    const presetBonuses = [40, 80, 40, 80, 0, 0, 0, 0, 0, 0];
-
-    // 初始化槽位
-    presetBonuses.forEach((val, i) => {
-        const div = document.createElement('div');
-        div.className = 'slot';
-        div.innerHTML = `<span>#${i+1}</span><input type="number" class="slot-input" value="${val}" step="10">`;
-        slotGrid.appendChild(div);
-    });
-
-    // 怪物血量公式
-    function getMonsterHP(L) {
-        if (L <= 100) return 3703 + 24.57 * L;
-        if (L <= 200) return 6160 + 262.68 * (L - 100);
-        return 32428 + 383.48 * (L - 200);
-    }
-
-    // 初始化图表
     const chart = new Chart(ctx, {
         type: 'line',
         data: {
-            labels: ['起步', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10'],
-            datasets: [{
-                label: '攻击力成长',
-                data: [],
-                borderColor: '#00e5ff',
-                backgroundColor: 'rgba(0, 229, 255, 0.1)',
-                fill: true,
-                tension: 0.1,
-                pointRadius: 4
-            }]
+            labels: ['初始', '词缀1', '词缀2', '词缀3', '词缀4'],
+            datasets: [{ label: '攻击力', data: [], borderColor: '#00e5ff', tension: 0.1 }]
         },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                y: { grid: { color: '#222' }, ticks: { color: '#555' } },
-                x: { grid: { display: false }, ticks: { color: '#555' } }
-            },
-            plugins: { legend: { display: false } }
-        }
+        options: { plugins: { legend: { display: false } }, scales: { y: { grid: { color: '#333' } } } }
     });
 
-    function calculate() {
-        const outAtk = parseInt(outS.value);
-        const L = parseInt(lS.value);
-        const N = parseInt(nS.value);
-        const initAtk = 122;
-        const diff = initAtk - outAtk;
+    function sync() {
+        const outAtk = 42;
+        const baseDiff = 122 - 42; // 80
+        
+        let totalBonusPercent = 0;
+        let history = [122];
 
-        const inputs = document.querySelectorAll('.slot-input');
-        let currentTotalBonus = 0;
-        let history = [initAtk];
-
-        // 核心拟合逻辑：百分比累加后再带入
         inputs.forEach(input => {
-            const val = parseFloat(input.value) || 0;
-            currentTotalBonus += val;
-            const stepAtk = outAtk + diff * (1 + currentTotalBonus / 100);
-            history.push(stepAtk);
+            totalBonusPercent += (parseFloat(input.value) || 0) / 100;
+            // 严格执行图 2 逻辑：42 + 80 * (1 + 累计百分比)
+            const currentAtk = outAtk + baseDiff * (1 + totalBonusPercent);
+            history.push(currentAtk);
         });
 
         const finalAtk = history[history.length - 1];
-        const critDmg = (2 * finalAtk) - outAtk;
+        // 严格执行图 1 逻辑：2 * ATK - 42
+        const finalCrit = 2 * finalAtk - outAtk;
 
-        // UI 更新
-        document.getElementById('outVal').innerText = outAtk;
-        document.getElementById('lVal').innerText = L;
-        document.getElementById('nVal').innerText = N;
-        document.getElementById('atkInRes').innerText = Math.round(finalAtk).toLocaleString();
-        document.getElementById('critRes').innerText = Math.round(critDmg).toLocaleString();
-
-        // 生存判定
-        const mHP = getMonsterHP(L);
-        const tDie = 100 / (N * 30);
-        const reqAtk = (mHP * N) / tDie;
+        atkDisp.innerText = Math.round(finalAtk);
+        critDisp.innerText = Math.round(finalCrit);
         
-        const sBox = document.getElementById('statusBox');
-        if (finalAtk >= reqAtk) {
-            sBox.className = "status-box pass";
-            sBox.innerText = `✅ 数值达标：可在 ${tDie.toFixed(2)}s 内清场`;
-        } else {
-            sBox.className = "status-box fail";
-            sBox.innerText = `❌ 火力不足：缺口 ${Math.round(reqAtk - finalAtk).toLocaleString()}`;
-        }
-
-        // 图表更新
         chart.data.datasets[0].data = history;
-        chart.update('none');
+        chart.update();
     }
 
-    // 事件监听
-    [outS, lS, nS].forEach(el => el.addEventListener('input', calculate));
-    document.addEventListener('input', (e) => {
-        if(e.target.classList.contains('slot-input')) calculate();
-    });
-
-    // 初始计算一次
-    calculate();
+    inputs.forEach(i => i.addEventListener('input', sync));
+    sync();
 </script>
-
 </body>
 </html>
