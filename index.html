@@ -2,85 +2,101 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>血月生存模拟器-走位修正版</title>
+    <title>血月生存压力模拟器</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        :root { --cyan: #00e5ff; --gold: #ff9f43; --bg: #121212; }
+        :root { --cyan: #00e5ff; --gold: #ff9f43; --red: #ff5252; --bg: #121212; }
         body { font-family: sans-serif; background: var(--bg); color: #fff; padding: 20px; }
-        .container { max-width: 1000px; margin: 0 auto; display: grid; grid-template-columns: 350px 1fr; gap: 20px; }
+        .container { max-width: 900px; margin: 0 auto; display: grid; grid-template-columns: 320px 1fr; gap: 20px; }
         .panel { background: #1e1e1e; padding: 20px; border-radius: 12px; border: 1px solid #333; }
-        .stat-card { background: #000; padding: 15px; border-radius: 8px; border-left: 4px solid var(--cyan); margin-bottom: 12px; }
-        .input-item { margin-bottom: 15px; }
-        label { display: block; font-size: 0.85em; color: #888; margin-bottom: 5px; }
-        input[type=range] { width: 100%; accent-color: var(--cyan); }
-        .val { float: right; color: var(--cyan); font-family: monospace; }
-        .status-box { padding: 15px; border-radius: 8px; text-align: center; font-weight: bold; border: 1px solid #444; }
-        .success { color: #4caf50; background: rgba(76, 175, 80, 0.1); border-color: #4caf50; }
-        .danger { color: #f44336; background: rgba(244, 67, 54, 0.1); border-color: #f44336; }
+        .input-group { margin-bottom: 20px; }
+        label { display: block; font-size: 0.85em; color: #888; margin-bottom: 8px; }
+        input[type=range] { width: 100%; accent-color: var(--cyan); cursor: pointer; }
+        .val { float: right; color: var(--cyan); font-family: monospace; font-weight: bold; }
+        
+        .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }
+        .stat-card { background: #000; padding: 15px; border-radius: 10px; border-top: 3px solid var(--cyan); }
+        .stat-title { font-size: 0.7em; color: #666; text-transform: uppercase; }
+        .stat-num { font-size: 1.6em; font-family: monospace; }
+
+        .status-banner { padding: 15px; border-radius: 8px; text-align: center; font-weight: bold; margin-bottom: 20px; border: 1px solid #444; }
+        .pass { background: rgba(0, 229, 255, 0.1); color: var(--cyan); border-color: var(--cyan); }
+        .fail { background: rgba(255, 82, 82, 0.1); color: var(--red); border-color: var(--red); }
+        
+        .info-text { font-size: 0.85em; color: #aaa; line-height: 1.6; }
+        .highlight { color: #fff; font-weight: bold; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <div class="panel">
-        <h3>🛡️ 战斗参数</h3>
+        <h3 style="margin-top:0">🎛️ 实时参数控制</h3>
         
-        <div class="input-item">
-            <label>血月等级 (L): <span id="lVal" class="val">0</span></label>
+        <div class="input-group">
+            <label>血月等级 (L) <span id="lVal" class="val">0</span></label>
             <input type="range" id="lSlider" min="0" max="300" value="0">
         </div>
 
-        <div class="input-item">
-            <label>怪物数量 (N): <span id="nVal" class="val">1</span></label>
+        <div class="input-group">
+            <label>怪物数量 (N) <span id="nVal" class="val">1</span></label>
             <input type="range" id="nSlider" min="1" max="50" value="1">
         </div>
 
-        <div class="input-item">
-            <label>词缀增伤累计 (%): <span id="bonusVal" class="val">0</span></label>
-            <input type="range" id="bonusSlider" min="0" max="1000" value="0" step="10">
+        <div class="input-group">
+            <label>词缀增伤累计 (%) <span id="bVal" class="val">0</span></label>
+            <input type="range" id="bSlider" min="0" max="1000" value="0" step="10">
         </div>
 
-        <div class="input-item">
-            <label>走位规避率 (%): <span id="dodgeVal" class="val">50</span></label>
-            <input type="range" id="dodgeSlider" min="0" max="99" value="50">
-            <small style="color:#555">说明：走位可大幅延长生存时间</small>
+        <div class="input-group">
+            <label>玩家走位规避率 (%) <span id="dVal" class="val">0</span></label>
+            <input type="range" id="dSlider" min="0" max="95" value="0">
         </div>
 
-        <hr style="border:0; border-top:1px solid #333; margin:20px 0;">
-        <div style="font-size:0.75em; color:#666;">
-            固定常数：<br>
-            局外伤害: 42 | 局内初始: 122<br>
-            怪物攻击: 30 | 玩家血量: 100
+        <div class="info-text" style="border-top:1px solid #333; padding-top:15px;">
+            <p>基础设定：<br>
+            • 局外ATK: <span class="highlight">42</span><br>
+            • 局内初始: <span class="highlight">122</span><br>
+            • 玩家血量: <span class="highlight">100</span><br>
+            • 怪物攻击: <span class="highlight">30</span></p>
         </div>
     </div>
 
     <div class="panel">
-        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px;">
+        <div id="statusBanner" class="status-banner fail">数值崩坏：无法生存</div>
+
+        <div class="stat-grid">
             <div class="stat-card">
-                <label>局内攻击力 (ATK_in)</label>
-                <div id="atkRes" style="font-size:1.8em; font-weight:bold;">122</div>
+                <div class="stat-title">局内总攻击力</div>
+                <div id="atkIn" class="stat-num">122</div>
             </div>
-            <div class="stat-card" style="border-left-color: var(--gold);">
-                <label>暴击伤害 (Crit)</label>
-                <div id="critRes" style="font-size:1.8em; font-weight:bold;">202</div>
+            <div class="stat-card" style="border-top-color: var(--gold);">
+                <div class="stat-title">实时暴击伤害</div>
+                <div id="critDmg" class="stat-num">202</div>
+            </div>
+            <div class="stat-card" style="border-top-color: #aaa;">
+                <div class="stat-title">生存倒计时 (T_die)</div>
+                <div id="tDie" class="stat-num">3.33s</div>
+            </div>
+            <div class="stat-card" style="border-top-color: #888;">
+                <div class="stat-title">怪物总血量 (HP*N)</div>
+                <div id="totalHp" class="stat-num">3,703</div>
             </div>
         </div>
 
-        <div id="statusResult" class="status-box">计算中...</div>
-
-        <canvas id="mainChart" height="180" style="margin-top:20px;"></canvas>
+        <canvas id="chart" height="180"></canvas>
     </div>
 </div>
 
 <script>
     const lS = document.getElementById('lSlider');
     const nS = document.getElementById('nSlider');
-    const bS = document.getElementById('bonusSlider');
-    const dS = document.getElementById('dodgeSlider');
-    const ctx = document.getElementById('mainChart').getContext('2d');
+    const bS = document.getElementById('bSlider');
+    const dS = document.getElementById('dSlider');
+    const ctx = document.getElementById('chart').getContext('2d');
 
-    // 严格拟合图1、图2、图3的公式
-    function getMonsterHP(L) {
+    // 怪物血量分段函数
+    function getHP(L) {
         if (L <= 100) return 3703 + 24.57 * L;
         if (L <= 200) return 6160 + 262.68 * (L - 100);
         return 32428 + 383.48 * (L - 200);
@@ -91,13 +107,14 @@
         data: {
             labels: Array.from({length: 31}, (_, i) => i * 10),
             datasets: [{
-                label: '生存所需攻击力',
+                label: '清场所需最小攻击力',
                 data: [],
                 borderColor: '#444',
-                borderDash: [5, 5],
-                pointRadius: 0
+                borderWidth: 1,
+                pointRadius: 0,
+                fill: false
             }, {
-                label: '当前实时攻击力',
+                label: '当前攻击力',
                 data: [],
                 borderColor: '#00e5ff',
                 backgroundColor: 'rgba(0, 229, 255, 0.1)',
@@ -105,59 +122,63 @@
                 pointRadius: 0
             }]
         },
-        options: { plugins: { legend: { display: false } }, scales: { y: { type: 'logarithmic' } } }
+        options: {
+            plugins: { legend: { display: false } },
+            scales: { 
+                y: { type: 'logarithmic', grid: { color: '#333' } },
+                x: { ticks: { color: '#666' } }
+            }
+        }
     });
 
     function update() {
         const L = parseInt(lS.value);
         const N = parseInt(nS.value);
-        const bonus = parseInt(bS.value) / 100;
-        const dodge = parseInt(dS.value) / 100;
+        const B = parseInt(bS.value) / 100;
+        const D = parseInt(dS.value) / 100;
 
-        const outAtk = 42;
-        const initAtk = 122;
-        const diff = initAtk - outAtk; // 80
+        // 1. 严格拟合攻击力公式
+        const atkIn = 42 + 80 * (1 + B);
+        // 2. 严格拟合暴击公式
+        const crit = 2 * atkIn - 42;
 
-        // 1. 攻击力拟合：累加逻辑
-        const atkIn = outAtk + diff * (1 + bonus);
-        // 2. 暴击拟合
-        const critDmg = 2 * atkIn - outAtk;
-
-        // 3. 生存判定修正（考虑走位规避率）
-        const mHP = getMonsterHP(L);
-        const mAtk = 30;
-        const playerHP = 100;
+        // 3. 生存判定逻辑
+        const mHP = getHP(L);
+        const totalMonsterHP = mHP * N;
+        const actualMonsterDPS = (N * 30) * (1 - D); // 考虑规避率
+        const tDie = actualMonsterDPS > 0 ? 100 / actualMonsterDPS : 999;
         
-        // 实际每秒承受伤害 = 怪物总攻 * (1 - 规避率)
-        const actualDPSReceived = (N * mAtk) * (1 - dodge);
-        const tDie = actualDPSReceived > 0 ? playerHP / actualDPSReceived : Infinity;
-        
-        // 清场所需最低攻击力 (假设攻速1次/秒)
-        const reqAtk = (mHP * N) / tDie;
+        // 清场需要的时间 (假设1秒1打)
+        const tKill = totalMonsterHP / atkIn;
+        const reqAtk = totalMonsterHP / tDie;
 
-        // UI更新
+        // UI 更新
         document.getElementById('lVal').innerText = L;
         document.getElementById('nVal').innerText = N;
-        document.getElementById('bonusVal').innerText = (bonus * 100).toFixed(0);
-        document.getElementById('dodgeVal').innerText = (dodge * 100).toFixed(0);
-        document.getElementById('atkRes').innerText = Math.round(atkIn).toLocaleString();
-        document.getElementById('critRes').innerText = Math.round(critDmg).toLocaleString();
+        document.getElementById('bVal').innerText = (B * 100).toFixed(0) + '%';
+        document.getElementById('dVal').innerText = (D * 100).toFixed(0) + '%';
+        
+        document.getElementById('atkIn').innerText = Math.round(atkIn).toLocaleString();
+        document.getElementById('critDmg').innerText = Math.round(crit).toLocaleString();
+        document.getElementById('tDie').innerText = tDie === 999 ? "∞" : tDie.toFixed(2) + "s";
+        document.getElementById('totalHp').innerText = Math.round(totalMonsterHP).toLocaleString();
 
-        const resBox = document.getElementById('statusResult');
+        const banner = document.getElementById('statusBanner');
         if (atkIn >= reqAtk) {
-            resBox.className = "status-box success";
-            resBox.innerText = `✅ 配合走位可生存 (清场用时: ${( (mHP*N)/atkIn ).toFixed(2)}s)`;
+            banner.className = "status-banner pass";
+            banner.innerText = "数值达标：配合走位可以生存";
         } else {
-            resBox.className = "status-box danger";
-            resBox.innerText = `❌ 数值过低：仍需额外 ${Math.round(reqAtk - atkIn).toLocaleString()} 攻击力`;
+            banner.className = "status-banner fail";
+            banner.innerText = `数值崩坏：建议最小攻击力 ${Math.round(reqAtk).toLocaleString()}`;
         }
 
-        chart.data.datasets[0].data = Array.from({length: 31}, (_, i) => (getMonsterHP(i * 10) * N) / tDie);
+        // 图表更新：展示全等级压力线
+        chart.data.datasets[0].data = Array.from({length: 31}, (_, i) => (getHP(i * 10) * N) / tDie);
         chart.data.datasets[1].data = Array(31).fill(atkIn);
         chart.update('none');
     }
 
-    [lS, nS, bS, dS].forEach(el => el.addEventListener('input', update));
+    [lS, nS, bS, dS].forEach(s => s.addEventListener('input', update));
     update();
 </script>
 </body>
