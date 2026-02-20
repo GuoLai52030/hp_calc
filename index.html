@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>血月数值模拟-多怪叠加版</title>
+    <title>血月数值模拟-全量指标版</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        :root { --cyan: #00e5ff; --gold: #ff9f43; --bg: #0d0d0d; --panel: #161616; }
+        :root { --cyan: #00e5ff; --gold: #ff9f43; --red: #ff4d4d; --bg: #0d0d0d; --panel: #161616; }
         html, body { background: var(--bg); color: #fff; margin: 0; padding: 0; font-family: sans-serif; overflow-x: hidden; }
         
         #viewport { width: 100%; max-width: 400px; margin: 0 auto; padding: 10px; box-sizing: border-box; }
@@ -16,16 +16,18 @@
 
         .control { margin-bottom: 10px; }
         .label { display: flex; justify-content: space-between; font-size: 0.8rem; color: #888; margin-bottom: 3px; }
-        .value { color: var(--cyan); font-family: monospace; font-weight: bold; }
+        .value { color: var(--cyan); font-weight: bold; font-family: monospace; }
         input[type=range] { width: 100%; accent-color: var(--cyan); cursor: pointer; height: 6px; }
 
+        /* 结果网格：改为三列或堆叠，适应侧边栏 */
         .res-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
         .res-box { background: #000; padding: 8px; border-radius: 6px; border-top: 2px solid var(--cyan); }
         .res-box.gold { border-top-color: var(--gold); }
+        .res-box.red { border-top-color: var(--red); }
         .res-label { font-size: 0.65rem; color: #666; margin-bottom: 2px; }
-        .res-val { font-size: 0.9rem; font-weight: bold; font-family: monospace; }
+        .res-val { font-size: 0.85rem; font-weight: bold; font-family: monospace; }
 
-        .chart-box { background: #000; border: 1px solid #222; border-radius: 8px; height: 220px; position: relative; padding: 10px; }
+        .chart-box { background: #000; border: 1px solid #222; border-radius: 8px; height: 200px; position: relative; padding: 10px; }
         .axis-name { position: absolute; font-size: 9px; color: #444; }
     </style>
 </head>
@@ -33,7 +35,7 @@
 
 <div id="viewport">
     <div class="card">
-        <div class="title">局内参数 (3s / 10次攻击)</div>
+        <div class="title">局内参数调节</div>
         
         <div class="control">
             <div class="label">血月等级 (L) <span class="value" id="lTxt">0</span></div>
@@ -58,17 +60,21 @@
 
     <div class="card">
         <div class="res-grid">
+            <div class="res-box red" style="grid-column: span 2;">
+                <div class="res-label">当前怪物总血量 (HP × N)</div>
+                <div id="vTotalHp" class="res-val" style="color: var(--red); font-size: 1.1rem;">0</div>
+            </div>
             <div class="res-box">
-                <div class="res-label">10次总攻击</div>
+                <div class="res-label">10次总普攻</div>
                 <div id="vAtkSum" class="res-val">0</div>
             </div>
             <div class="res-box gold">
-                <div class="res-label">10次总暴击(附加)</div>
+                <div class="res-label">10次总暴击(附)</div>
                 <div id="vCritSum" class="res-val">0</div>
             </div>
             <div class="res-box" style="grid-column: span 2; border-top-color: #fff; background: #0a0a0a;">
-                <div class="res-label">单轮爆发总伤害 (叠加后)</div>
-                <div id="vTotal" class="res-val" style="font-size: 1.2rem; color: var(--gold);">0</div>
+                <div class="res-label">单轮爆发总伤害 (期望叠加)</div>
+                <div id="vTotalDmg" class="res-val" style="font-size: 1.2rem; color: var(--gold);">0</div>
             </div>
         </div>
         
@@ -85,7 +91,6 @@
     const lS = $('lS'), nS = $('nS'), bS = $('bS'), cS = $('cS');
     const ctx = $('chart').getContext('2d');
 
-    // 血月血量公式
     function getHP(L) {
         if (L <= 100) return 3703 + 24.57 * L;
         if (L <= 200) return 6160 + 262.68 * (L - 100);
@@ -97,7 +102,7 @@
         data: {
             labels: Array.from({length: 31}, (_, i) => i * 10),
             datasets: [
-                { label: '怪物总血量 (HP*N)', data: [], borderColor: '#444', borderWidth: 2, pointRadius: 0 },
+                { label: '怪物总HP', data: [], borderColor: '#ff4d4d', borderWidth: 2, pointRadius: 0 },
                 { label: '玩家总输出', data: [], borderColor: '#00e5ff', borderWidth: 2, pointRadius: 0 }
             ]
         },
@@ -117,24 +122,28 @@
         const B = parseInt(bS.value) / 100;
         const C = parseInt(cS.value) / 100;
 
-        // 核心伤害逻辑
+        // 怪物血量
+        const totalHp = getHP(L) * N;
+
+        // 玩家伤害逻辑
         const atkIn = 42 + 80 * (1 + B);
         const critDmg = 2 * atkIn - 42;
-
         const atkSum = atkIn * 10;
         const critSum = critDmg * 10;
         const totalDmg = atkSum + (critSum * C);
 
-        // UI 文本刷新
+        // UI 刷新
         $('lTxt').innerText = L;
         $('nTxt').innerText = N;
         $('bTxt').innerText = (B * 100).toFixed(0) + '%';
         $('cTxt').innerText = (C * 100).toFixed(0) + '%';
+        
+        $('vTotalHp').innerText = Math.round(totalHp).toLocaleString();
         $('vAtkSum').innerText = Math.round(atkSum).toLocaleString();
         $('vCritSum').innerText = Math.round(critSum).toLocaleString();
-        $('vTotal').innerText = Math.round(totalDmg).toLocaleString();
+        $('vTotalDmg').innerText = Math.round(totalDmg).toLocaleString();
 
-        // 图表数据刷新：怪物血量受 N 影响
+        // 图表刷新
         chart.data.datasets[0].data = Array.from({length: 31}, (_, i) => getHP(i * 10) * N);
         chart.data.datasets[1].data = Array(31).fill(totalDmg);
         chart.update('none');
